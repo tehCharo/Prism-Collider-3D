@@ -40,7 +40,7 @@ Designed to help characters smoothly traverse stairs, ledges, and small obstacle
 
 ## Demo
 
-![Plugin Inspector](docs/prism_collider_demo.gi)  
+![Plugin Inspector](docs/prism_collider_demo.gif)  
 *Sliding up stairs example.*
 
 ---
