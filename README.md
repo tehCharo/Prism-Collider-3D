@@ -47,7 +47,7 @@ Designed to help characters smoothly traverse stairs, ledges, and small obstacle
 
 ## Godot Version
 
-- Godot 4.x (tested with 4.2)
+- Godot 4.x (tested with 4.6)
 
 ---
 
