@@ -50,6 +50,16 @@ enum CrossSection {
 }
 
 
+enum AnchorMode {
+	CENTER,
+	TOP,
+	BOTTOM,
+}
+
+
+@export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR)
+var anchor_mode: AnchorMode = AnchorMode.CENTER
+
 ## Cross-section shape for the main prism body (circle or square).
 @export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR)
 var cross_section: CrossSection = CrossSection.CIRCLE : set = _set_cross_section
@@ -66,6 +76,9 @@ var body_radius : float = DEFAULT_MIDDLE_RADIUS : set = _set_body_radius
 
 @export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR)
 var radial_segments: int = DEFAULT_RADIAL_SEGMENTS : set = _set_radial_segments
+
+@export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR)
+var start_angle: float = 0.0 : set = _set_start_angle
 
 # -- Square Options --
 
@@ -98,10 +111,16 @@ var bottom_radius : float = DEFAULT_BOTTOM_RADIUS : set = _set_bottom_radius
 var bottom_height : float = DEFAULT_BOTTOM_RING_HEIGHT : set = _set_bottom_height
 
 
-var new_shape: ConvexPolygonShape3D = ConvexPolygonShape3D.new()
-
+var _convex_shape: ConvexPolygonShape3D = ConvexPolygonShape3D.new()
+var _start_angle: float = 0.0
 
 func _ready() -> void:
+	shape = _convex_shape # Here
+	_update_collision_shape()
+
+
+func _set_anchor_mode(value: AnchorMode) -> void:
+	anchor_mode = value
 	_update_collision_shape()
 
 
@@ -150,10 +169,15 @@ func _set_radial_segments(new_radial_segments: int) -> void:
 	_update_collision_shape()
 
 
+func _set_start_angle(new_start_angle: int) -> void:
+	start_angle = wrap(new_start_angle, 0.0, 360.0)
+	_start_angle = deg_to_rad(start_angle)
+	_update_collision_shape()
+
+
 func _update_collision_shape() -> void:
 	var points: PackedVector3Array = _generate_collider_points()
-	new_shape.points = points
-	shape = new_shape
+	_convex_shape.points = points
 
 
 func _set_cross_section(value: CrossSection) -> void:
@@ -164,7 +188,7 @@ func _set_cross_section(value: CrossSection) -> void:
 
 func _add_circle_ring(points: PackedVector3Array, y: float, radius: float) -> void:
 	for i in range(radial_segments):
-		var angle := TAU * float(i) / radial_segments
+		var angle := TAU * float(i) / radial_segments + _start_angle
 		points.append(Vector3(
 			cos(angle) * radius,
 			y,
@@ -191,9 +215,26 @@ func _generate_collider_points() -> PackedVector3Array:
 	var points: PackedVector3Array = []
 
 	var body_height := total_height - (top_height + bottom_height)
-	var half_height := total_height * 0.5
-	var body_top_y := half_height - top_height
-	var body_bottom_y := -half_height + bottom_height
+
+	var top_y: float
+	var bottom_y: float
+
+	match anchor_mode:
+		AnchorMode.CENTER:
+			var half_height := total_height * 0.5
+			top_y = half_height
+			bottom_y = -half_height
+
+		AnchorMode.TOP:
+			top_y = 0.0
+			bottom_y = -total_height
+
+		AnchorMode.BOTTOM:
+			top_y = total_height
+			bottom_y = 0
+
+	var body_top_y := top_y - top_height
+	var body_bottom_y := bottom_y + bottom_height
 
 	if (is_zero_approx(body_height)):
 		# If body height is zero, collapse to a single ring
@@ -233,6 +274,15 @@ func _get_property_list() -> Array:
 	})
 
 	props.append({
+		"name": &"anchor_mode",
+		"type": TYPE_INT,
+		"hint": PROPERTY_HINT_ENUM,
+		"hint_string": &"Center,Top,Bottom",
+		"usage": PROPERTY_USAGE_DEFAULT,
+		"category": &"Shape Options"
+	})
+
+	props.append({
 		"name": &"cross_section",
 		"type": TYPE_INT,
 		"hint": PROPERTY_HINT_ENUM,
@@ -264,6 +314,14 @@ func _get_property_list() -> Array:
 			"type": TYPE_INT,
 			"hint": PROPERTY_HINT_RANGE,
 			"hint_string": &"%d,%d,1" % [MIN_RADIAL_SEGMENTS, MAX_RADIAL_SEGMENTS],
+			"usage": PROPERTY_USAGE_DEFAULT,
+		})
+
+		props.append({
+			"name": &"start_angle",
+			"type": TYPE_FLOAT,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": &"%d,%d,1" % [0.0, 360.0],
 			"usage": PROPERTY_USAGE_DEFAULT,
 		})
 	else:
